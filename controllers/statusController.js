@@ -1,7 +1,7 @@
 const optimaService = require("../services/optimaService");
 const walletService = require("../services/walletService");
 const transactionService = require("../services/transactionService");
-const { success, error } = require("../utils/response");
+const { error } = require("../utils/response");
 
 async function checkStatus(req, res) {
 
@@ -19,41 +19,72 @@ async function checkStatus(req, res) {
 
         const status = await optimaService.checkStatus(checkout_request_id);
 
+        const transaction =
+            await transactionService.getTransaction(checkout_request_id);
+
+        /*
+        =========================================
+        PAYMENT SUCCESS
+        =========================================
+        */
+
         if (status.status === "SUCCESS") {
 
-            const amount = Number(status.amount);
+            // Only process once
+            if (transaction && transaction.data().status !== "SUCCESS") {
 
-            if (balanceType === "wallet") {
+                const amount = Number(status.amount);
 
-                await walletService.topupWallet(uid, amount);
+                if (balanceType === "wallet") {
 
-            } else if (balanceType === "service") {
+                    await walletService.topupWallet(uid, amount);
 
-                await walletService.topupService(uid, amount);
+                } else if (balanceType === "service") {
+
+                    await walletService.topupService(uid, amount);
+
+                }
+
+                await transactionService.updateTransaction(
+                    checkout_request_id,
+                    {
+                        status: "SUCCESS",
+                        amount,
+                        phone: status.phone
+                    }
+                );
 
             }
 
-            await transactionService.saveTransaction({
+        }
 
-                uid,
-                amount,
-                phone: status.phone,
-                checkoutRequestId: checkout_request_id,
-                status: "SUCCESS",
-                type: "Deposit",
-                balanceType
+        /*
+        =========================================
+        PAYMENT FAILED / CANCELLED
+        =========================================
+        */
 
-            });
+        if (
+            status.status === "FAILED" ||
+            status.status === "CANCELLED"
+        ) {
+
+            await transactionService.updateTransaction(
+                checkout_request_id,
+                {
+                    status: "FAILED"
+                }
+            );
 
         }
 
         return res.json({
-    success: true,
-    status: status.status,
-    amount: status.amount,
-    phone: status.phone,
-    data: status
-});
+            success: true,
+            status: status.status,
+            amount: status.amount,
+            phone: status.phone,
+            data: status
+        });
 
     } catch (err) {
 
