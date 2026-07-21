@@ -99,7 +99,7 @@ async function payout(phone, amount, reference) {
             { headers }
         );
 
-        log("Payout Response", response.data);
+        console.log(JSON.stringify(response.data, null, 2));
 
         return response.data;
 
