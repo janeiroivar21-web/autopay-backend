@@ -1,6 +1,8 @@
 const optimaService = require("../services/optimaService");
 const transactionService = require("../services/transactionService");
 const { success, error } = require("../utils/response");
+const admin = require("firebase-admin");
+const db = admin.firestore();
 
 async function stkPush(req, res) {
 
@@ -38,6 +40,15 @@ async function stkPush(req, res) {
             result.MerchantRequestID ||
             result.merchantRequestId;
 
+        // Get merchant information
+const userDoc = await db.collection("users").doc(uid).get();
+
+if (!userDoc.exists) {
+    return error(res, "Merchant not found.", 404);
+}
+
+const merchant = userDoc.data();
+
         /*
         =========================================
         CREATE PENDING TRANSACTION
@@ -46,21 +57,25 @@ async function stkPush(req, res) {
 
         await transactionService.saveTransaction({
 
-            uid,
-            phone,
-            amount: Number(amount),
+    uid,
 
-            checkoutRequestId: checkoutRequestId,
+    merchantId: merchant.merchantId,
 
-            merchantRequestId: merchantRequestId,
+    phone,
 
-            status: "PENDING",
+    amount: Number(amount),
 
-            type: "Deposit",
+    checkoutRequestId,
 
-            balanceType
+    merchantRequestId,
 
-        });
+    status: "PENDING",
+
+    type: "Deposit",
+
+    balanceType
+
+});
 
         return success(
             res,
