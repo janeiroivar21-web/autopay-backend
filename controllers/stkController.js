@@ -14,7 +14,19 @@ async function stkPush(req, res) {
         const result = await optimaService.stkPush(phone, amount);
 
         return success(res, "STK Push sent successfully.", {
+
+            checkout_request_id:
+                result.checkout_request_id ||
+                result.CheckoutRequestID ||
+                result.checkoutRequestId,
+
+            merchant_request_id:
+                result.merchant_request_id ||
+                result.MerchantRequestID ||
+                result.merchantRequestId,
+
             data: result
+
         });
 
     } catch (err) {
@@ -23,7 +35,8 @@ async function stkPush(req, res) {
 
         return error(
             res,
-            err.response?.data?.message || "Failed to send STK Push."
+            err.response?.data?.message ||
+            "Failed to send STK Push."
         );
 
     }
