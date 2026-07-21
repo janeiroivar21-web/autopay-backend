@@ -59,7 +59,63 @@ async function updateMerchant(req, res) {
 
 }
 
+/*
+=========================================
+CREATE PAYMENT ACCOUNT
+=========================================
+*/
+
+async function createPaymentAccount(req, res) {
+
+    try {
+
+        const accountId = await merchantService.createPaymentAccount(req.body);
+
+        return success(res, "Payment account created successfully.", {
+            accountId
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        return error(res, "Unable to create payment account.");
+
+    }
+
+}
+
+/*
+=========================================
+GET PAYMENT ACCOUNTS
+=========================================
+*/
+
+async function getPaymentAccounts(req, res) {
+
+    try {
+
+        const { uid } = req.params;
+
+        const accounts = await merchantService.getPaymentAccounts(uid);
+
+        return success(res, "Payment accounts loaded successfully.", {
+            accounts
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        return error(res, "Unable to load payment accounts.");
+
+    }
+
+}
+
 module.exports = {
     getMerchant,
-    updateMerchant
+    updateMerchant,
+    createPaymentAccount,
+    getPaymentAccounts
 };
