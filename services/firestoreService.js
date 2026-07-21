@@ -11,6 +11,10 @@ const transactions = db.collection("transactions");
 const withdrawals = db.collection("withdrawals");
 const paymentAccounts = db.collection("paymentAccounts");
 const paymentLinks = db.collection("paymentLinks");
+const apiKeys = db.collection("apiKeys");
+const webhooks = db.collection("webhooks");
+const settings = db.collection("settings");
+const activityLogs = db.collection("activityLogs");
 
 module.exports = {
     db,
@@ -18,5 +22,9 @@ module.exports = {
     transactions,
     withdrawals,
     paymentAccounts,
-    paymentLinks
+    paymentLinks,
+    apiKeys,
+    webhooks,
+    settings,
+    activityLogs
 };
