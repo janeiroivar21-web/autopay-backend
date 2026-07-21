@@ -49,6 +49,10 @@ if (!userDoc.exists) {
 
 const merchant = userDoc.data();
 
+if (!merchant.merchantId) {
+    return error(res, "Merchant ID not found.", 400);
+}
+
         /*
         =========================================
         CREATE PENDING TRANSACTION
