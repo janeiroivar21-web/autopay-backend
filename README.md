@@ -1,12 +1,52 @@
-AUTOPAY Payment Gateway Backend
+# AUTOPAY Backend
 
-Features
+AUTOPAY Backend powers the AUTOPAY Merchant Platform.
 
-✔ Wallet Top-up
-✔ Service Wallet Top-up
-✔ Withdrawals
-✔ STK Push
-✔ Transaction Tracking
-✔ Merchant Authentication
-✔ Firebase Integration
-✔ API Keys
+## Features
+
+- Wallet Top-up
+- Service Balance Top-up
+- Merchant Withdrawals
+- STK Push Integration
+- Transaction Status Tracking
+- Merchant Authentication
+- Firebase Firestore Integration
+- API Key Authentication
+- Webhooks
+- Transaction Logs
+
+## Technologies
+
+- Node.js
+- Express.js
+- Firebase Admin SDK
+- OptimaPay Bridge API
+- Axios
+
+## Installation
+
+```bash
+npm install
+```
+
+## Development
+
+```bash
+npm run dev
+```
+
+## Production
+
+```bash
+npm start
+```
+
+## Environment Variables
+
+Create a `.env` file using `.env.example`.
+
+## Deployment
+
+Recommended platform:
+
+- Render
