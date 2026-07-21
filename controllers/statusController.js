@@ -47,9 +47,13 @@ async function checkStatus(req, res) {
 
         }
 
-        return success(res, "Status retrieved successfully.", {
-            data: status
-        });
+        return res.json({
+    success: true,
+    status: status.status,
+    amount: status.amount,
+    phone: status.phone,
+    data: status
+});
 
     } catch (err) {
 
