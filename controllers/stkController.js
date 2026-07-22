@@ -1,4 +1,4 @@
-const optimaService = require("../services/optimaService");
+const swiftService = require("../services/swiftService");
 const transactionService = require("../services/transactionService");
 const { success, error } = require("../utils/response");
 const admin = require("firebase-admin");
@@ -25,10 +25,10 @@ async function stkPush(req, res) {
 
         }
 
-        const result = await optimaService.stkPush(
-            phone,
-            amount
-        );
+        const result = await swiftService.stkPush(
+    phone,
+    amount
+);
 
         const checkoutRequestId =
             result.checkout_request_id ||
