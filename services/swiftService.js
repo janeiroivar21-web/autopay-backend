@@ -1,4 +1,5 @@
 const axios = require("axios");
+const fs = require("fs");
 const { formatPhone } = require("../utils/phone");
 const { log, error } = require("../utils/logger");
 
@@ -47,13 +48,27 @@ async function stkPush(phone, amount, reference = null, customerName = "AUTOPAY 
 
     } catch (err) {
 
-        console.error("SwiftWallet STK Error:", {
-    status: err.response?.status,
-    data: err.response?.data,
-    message: err.message
-});
+    const errorLog = `
+==============================
+${new Date().toISOString()}
 
-throw err;
+Status:
+${err.response?.status}
+
+Message:
+${err.message}
+
+Response:
+${JSON.stringify(err.response?.data, null, 2)}
+
+`;
+
+    fs.appendFileSync("swift-error.log", errorLog);
+
+    console.error(errorLog);
+
+    throw err;
+
     }
 
 }
