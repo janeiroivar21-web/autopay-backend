@@ -1,6 +1,6 @@
 const swiftService = require("../services/swiftService");
 const walletService = require("../services/walletService");
-const { calculateWithdrawFee } = require("../utils/fees");
+const withdrawalService = require("../services/withdrawalService");
 const { generateReference } = require("../utils/reference");
 const { success, error } = require("../utils/response");
 
@@ -25,6 +25,23 @@ async function withdraw(req, res) {
 const payoutAmount = Number(amount) - withdrawalFee;
 
         const reference = generateReference("WD");
+
+        const { users } = require("../services/firestoreService");
+
+const userRef = users.doc(uid);
+const userSnap = await userRef.get();
+
+if (!userSnap.exists) {
+    return error(res, "Merchant not found.", 404);
+}
+
+const walletBalance = Number(userSnap.data().walletBalance || 0);
+
+if (walletBalance < Number(amount)) {
+    return error(res, "Insufficient Wallet Balance.", 400);
+}
+
+await walletService.deductWallet(uid, amount);
 
         const payout = await swiftService.payout(
     phone,
