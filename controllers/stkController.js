@@ -9,14 +9,15 @@ async function stkPush(req, res) {
     try {
 
         const {
-            uid,
-            phone,
-            amount,
-
-        const result = await swiftService.stkPush(
+    uid,
     phone,
-    amount
-);
+    amount,
+    balanceType
+} = req.body;
+
+if (!uid || !phone || !amount || !balanceType) {
+    return error(res, "Missing required fields.", 400);
+}
 
             /*
 =========================================
@@ -43,7 +44,11 @@ if (serviceBalance < requiredFee) {
 
 }
 
-
+const result = await swiftService.stkPush(
+    phone,
+    amount
+);
+        
         const checkoutRequestId =
             result.checkout_request_id ||
             result.CheckoutRequestID ||
