@@ -4,10 +4,9 @@ const { success, error } = require("../utils/response");
 
 /*
 =========================================
-OPTIMAPAY WEBHOOK
+SWIFTWALLET WEBHOOK
 =========================================
 */
-
 async function webhook(req, res) {
 
     try {
@@ -30,18 +29,26 @@ async function webhook(req, res) {
 
         */
 
-        if (data.status !== "SUCCESS") {
+        if (!data.success || data.status !== "completed") {
 
-            return success(res, "Webhook received.");
+    return success(res, "Webhook received.");
 
         }
 
+
+        const serviceFee = Number(data.result.Amount) * 0.08;
+        
         if (data.balanceType === "wallet") {
 
             await walletService.topupWallet(
-                data.uid,
-                data.amount
-            );
+    data.uid,
+    Number(data.result.Amount)
+);
+
+           await walletService.deductServiceBalance(
+    data.uid,
+    serviceFee
+);
 
         } else if (data.balanceType === "service") {
 
@@ -56,13 +63,16 @@ async function webhook(req, res) {
 
             uid: data.uid,
 
-            phone: data.phone,
+            phone: data.result.Phone,
 
-            amount: data.amount,
+            amount: Number(data.result.Amount),
+serviceFee,
 
-            transactionId: data.transactionId,
+            transactionId: data.transaction_id,
+            checkoutRequestId: data.checkout_request_id,
+            merchantRequestId: data.merchant_request_id,
 
-            status: data.status,
+            status: "SUCCESS",
 
             type: "Deposit",
 
