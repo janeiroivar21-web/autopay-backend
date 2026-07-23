@@ -29,36 +29,18 @@ if (!uid || !phone || !amount || !balanceType) {
     return error(res, "Missing required fields.", 400);
 }
 
-            /*
+/*
 =========================================
-CHECK SERVICE WALLET
+CALCULATE SERVICE FEE
+(Till Number - No Wallet API Check)
 =========================================
 */
 
-console.log("STEP 2: Checking Swift Wallet");
-
-const wallet = await swiftService.getWalletBalance();
-
-console.log("Wallet Response:", wallet);
-
-const balances = wallet.data?.balances || {};
-
-const serviceBalance =
-    Number(balances.service_wallet_balance || 0);
+console.log("STEP 2: Skipping Wallet API Check");
 
 const requiredFee = Number(amount) * 0.08;
 
-if (serviceBalance < requiredFee) {
-
-    return error(
-        res,
-        `Insufficient Service Wallet balance. Required: KES ${requiredFee.toFixed(2)}.`,
-        400
-    );
-
-}
-
-    console.log("STEP 3: Loading Merchant");
+console.log("STEP 3: Loading Merchant");
 
 const userDoc = await db.collection("users").doc(uid).get();
 
