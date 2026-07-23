@@ -50,6 +50,34 @@ app.get("/health", (req, res) => {
 
 /*
 =========================================
+TEST STK
+=========================================
+*/
+
+app.get("/test-stk", async (req, res) => {
+    try {
+
+        const result = await sendStk(
+            "254702448518",   // Replace with your test phone if needed
+            10,
+            "TEST-" + Date.now(),
+            "AUTOPAY Test"
+        );
+
+        res.json(result);
+
+    } catch (err) {
+
+        res.status(500).json({
+            message: err.message,
+            response: err.response?.data || null
+        });
+
+    }
+});
+
+/*
+=========================================
 ROUTES
 =========================================
 */
