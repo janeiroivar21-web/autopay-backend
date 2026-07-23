@@ -20,12 +20,13 @@ async function stkPush(phone, amount, reference = null, customerName = "AUTOPAY 
     try {
 
         const payload = {
-            amount: Number(amount),
-            phone_number: formatPhone(phone),
-            external_reference: reference || `AUTO-${Date.now()}`,
-            customer_name: customerName,
-            callback_url: process.env.SWIFT_CALLBACK_URL
-        };
+    amount: Math.round(Number(amount)),
+    phone_number: formatPhone(phone),
+    external_reference: reference || `AUTO-${Date.now()}`,
+    customer_name: customerName,
+    callback_url: process.env.SWIFT_CALLBACK_URL,
+    channel_id: process.env.SWIFT_CHANNEL_ID
+};
 
         log("Sending SwiftWallet STK Push", payload);
 
@@ -41,9 +42,13 @@ async function stkPush(phone, amount, reference = null, customerName = "AUTOPAY 
 
     } catch (err) {
 
-        error("SwiftWallet STK Error", err.response?.data || err.message);
+        console.error("SwiftWallet STK Error:", {
+    status: err.response?.status,
+    data: err.response?.data,
+    message: err.message
+});
 
-        throw err;
+throw err;
     }
 
 }
