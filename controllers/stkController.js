@@ -132,19 +132,16 @@ const result = await swiftService.stkPush(
 
     } catch (err) {
 
-        console.error(err);
+    console.error("STK Controller Error:");
+    console.error(err.response?.data || err.stack || err);
 
-        return error(
+    return res.status(500).json({
+        success: false,
+        message: err.message,
+        swift_error: err.response?.data || null
+    });
 
-            res,
-
-            err.response?.data?.message ||
-
-            "Failed to send STK Push."
-
-        );
-
-    }
+}
 
 }
 
