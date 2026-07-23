@@ -1,4 +1,4 @@
-const optimaService = require("../services/optimaService");
+const swiftService = require("../services/swiftService");
 const walletService = require("../services/walletService");
 const transactionService = require("../services/transactionService");
 const { error } = require("../utils/response");
@@ -17,7 +17,13 @@ async function checkStatus(req, res) {
             return error(res, "Missing required fields.", 400);
         }
 
-        const status = await optimaService.checkStatus(checkout_request_id);
+        const result = await swiftService.checkStatus(checkout_request_id);
+
+const transactionData = result.data?.transaction;
+
+if (!transactionData) {
+    return error(res, "Transaction not found.", 404);
+}
 
         const transaction =
             await transactionService.getTransaction(checkout_request_id);
@@ -28,12 +34,14 @@ async function checkStatus(req, res) {
         =========================================
         */
 
-        if (status.status === "SUCCESS") {
+        if (transactionData.status === "completed") {
 
             // Only process once
-            if (transaction && transaction.data().status !== "SUCCESS") {
+            if (transaction && transaction.data().status !== "completed") {
 
-                const amount = Number(status.amount);
+                const amount = Number(transactionData.amount);
+
+               const serviceFee = amount * 0.08;
 
                 if (balanceType === "wallet") {
 
@@ -50,7 +58,7 @@ async function checkStatus(req, res) {
                     {
                         status: "SUCCESS",
                         amount,
-                        phone: status.phone
+                        phone: transactionData.phone_number
                     }
                 );
 
@@ -65,26 +73,26 @@ async function checkStatus(req, res) {
         */
 
         if (
-            status.status === "FAILED" ||
-            status.status === "CANCELLED"
-        ) {
+    transactionData.status === "failed" ||
+    transactionData.status === "cancelled"
+) {
 
             await transactionService.updateTransaction(
                 checkout_request_id,
                 {
-                    status: "FAILED"
+                    status: "failed"
                 }
             );
 
         }
 
         return res.json({
-            success: true,
-            status: status.status,
-            amount: status.amount,
-            phone: status.phone,
-            data: status
-        });
+    success: true,
+    status: transactionData.status,
+    amount: transactionData.amount,
+    phone: transactionData.phone_number,
+    data: result
+});
 
     } catch (err) {
 
