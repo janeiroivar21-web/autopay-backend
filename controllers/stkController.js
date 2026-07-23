@@ -12,18 +12,31 @@ async function stkPush(req, res) {
             uid,
             phone,
             amount,
-            balanceType = "wallet"
-        } = req.body;
 
-        if (!uid || !phone || !amount) {
+            /*
+=========================================
+CHECK SERVICE WALLET
+=========================================
+*/
 
-            return error(
-                res,
-                "UID, phone and amount are required.",
-                400
-            );
+const wallet = await swiftService.getWalletBalance();
 
-        }
+const balances = wallet.data?.balances || {};
+
+const serviceBalance =
+    Number(balances.service_wallet_balance || 0);
+
+const requiredFee = Number(amount) * 0.08;
+
+if (serviceBalance < requiredFee) {
+
+    return error(
+        res,
+        `Insufficient Service Wallet balance. Required: KES ${requiredFee.toFixed(2)}.`,
+        400
+    );
+
+}
 
         const result = await swiftService.stkPush(
     phone,
