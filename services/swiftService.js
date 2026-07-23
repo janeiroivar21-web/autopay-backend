@@ -30,6 +30,11 @@ async function stkPush(phone, amount, reference = null, customerName = "AUTOPAY 
 
         log("Sending SwiftWallet STK Push", payload);
 
+        console.log("Using API Base:", API_BASE);
+        console.log("Channel ID:", process.env.SWIFT_CHANNEL_ID);
+        console.log("Callback URL:", process.env.SWIFT_CALLBACK_URL);
+        console.log("API Key exists:", !!process.env.SWIFT_API_KEY);
+
         const response = await axios.post(
             `${API_BASE}/stk-initiate/`,
             payload,
