@@ -6,14 +6,24 @@ const db = admin.firestore();
 
 async function stkPush(req, res) {
 
-    try {
+    console.log("===== STK REQUEST START =====");
+    console.log("Request Body:", req.body);
 
+    try {
         const {
     uid,
     phone,
     amount,
     balanceType
 } = req.body;
+
+    console.log("STEP 1: Fields received");
+console.log({
+    uid,
+    phone,
+    amount,
+    balanceType
+});
 
 if (!uid || !phone || !amount || !balanceType) {
     return error(res, "Missing required fields.", 400);
@@ -25,7 +35,11 @@ CHECK SERVICE WALLET
 =========================================
 */
 
+console.log("STEP 2: Checking Swift Wallet");
+
 const wallet = await swiftService.getWalletBalance();
+
+console.log("Wallet Response:", wallet);
 
 const balances = wallet.data?.balances || {};
 
@@ -44,7 +58,11 @@ if (serviceBalance < requiredFee) {
 
 }
 
-    const userDoc = await db.collection("users").doc(uid).get();
+    console.log("STEP 3: Loading Merchant");
+
+const userDoc = await db.collection("users").doc(uid).get();
+
+console.log("Merchant Exists:", userDoc.exists);
 
 if (!userDoc.exists) {
     return error(res, "Merchant not found.", 404);
@@ -56,6 +74,8 @@ if (!merchant.merchantId) {
     return error(res, "Merchant ID not found.", 400);
 }
 
+console.log("STEP 4: Sending STK Push");
+        
 const result = await swiftService.stkPush(
     phone,
     amount,
