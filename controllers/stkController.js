@@ -13,6 +13,11 @@ async function stkPush(req, res) {
             phone,
             amount,
 
+        const result = await swiftService.stkPush(
+    phone,
+    amount
+);
+
             /*
 =========================================
 CHECK SERVICE WALLET
@@ -38,10 +43,6 @@ if (serviceBalance < requiredFee) {
 
 }
 
-        const result = await swiftService.stkPush(
-    phone,
-    amount
-);
 
         const checkoutRequestId =
             result.checkout_request_id ||
@@ -81,6 +82,8 @@ if (!merchant.merchantId) {
     phone,
 
     amount: Number(amount),
+
+    serviceFee: requiredFee,
 
     checkoutRequestId,
 
