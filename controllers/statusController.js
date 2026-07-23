@@ -39,19 +39,7 @@ if (!transactionData) {
             // Only process once
             if (transaction && transaction.data().status !== "SUCCESS") {
 
-                const amount = Number(transactionData.amount);
-
-               const serviceFee = amount * 0.08;
-
-                if (balanceType === "wallet") {
-
-                    await walletService.topupWallet(uid, amount);
-
-                } else if (balanceType === "service") {
-
-                    await walletService.topupService(uid, amount);
-
-                }
+               const amount = Number(transactionData.amount);
 
                 await transactionService.updateTransaction(
                     checkout_request_id,
