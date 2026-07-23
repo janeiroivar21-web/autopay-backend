@@ -33,13 +33,33 @@ async function webhook(req, res) {
     data.checkout_request_id
 );
 
+// Prevent duplicate processing
+if (transaction.data().status === "SUCCESS") {
+    return success(res, "Transaction already processed.");
+}
+
 if (!transaction.exists) {
     return error(res, "Transaction not found.", 404);
 }
 
-const uid = transaction.data().uid;
-const balanceType = transaction.data().balanceType;
+const transactionData = transaction.data();
 
+const uid = transactionData.uid;
+const balanceType = transactionData.balanceType;
+const serviceFee = transactionData.serviceFee || 0;
+
+if (data.result?.ResultCode !== 0) {
+
+    await transactionService.updateTransaction(
+        data.checkout_request_id,
+        {
+            status: "FAILED"
+        }
+    );
+
+    return success(res, "Payment failed.");
+}
+        
 if (balanceType === "wallet") {
 
     await walletService.topupWallet(
