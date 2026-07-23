@@ -44,23 +44,7 @@ if (serviceBalance < requiredFee) {
 
 }
 
-const result = await swiftService.stkPush(
-    phone,
-    amount
-);
-        
-        const checkoutRequestId =
-            result.checkout_request_id ||
-            result.CheckoutRequestID ||
-            result.checkoutRequestId;
-
-        const merchantRequestId =
-            result.merchant_request_id ||
-            result.MerchantRequestID ||
-            result.merchantRequestId;
-
-        // Get merchant information
-const userDoc = await db.collection("users").doc(uid).get();
+    const userDoc = await db.collection("users").doc(uid).get();
 
 if (!userDoc.exists) {
     return error(res, "Merchant not found.", 404);
@@ -71,6 +55,31 @@ const merchant = userDoc.data();
 if (!merchant.merchantId) {
     return error(res, "Merchant ID not found.", 400);
 }
+
+const result = await swiftService.stkPush(
+    phone,
+    amount,
+    null,
+    merchant.fullName || "AUTOPAY Customer"
+);
+        
+        const checkoutRequestId =
+            result.checkout_request_id ||
+            result.CheckoutRequestID ||
+            result.checkoutRequestId;
+
+        if (!checkoutRequestId) {
+    return error(
+        res,
+        "SwiftWallet did not return Checkout Request ID.",
+        500
+    );
+    }
+
+        const merchantRequestId =
+            result.merchant_request_id ||
+            result.MerchantRequestID ||
+            result.merchantRequestId;
 
         /*
         =========================================
