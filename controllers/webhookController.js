@@ -29,56 +29,49 @@ async function webhook(req, res) {
 
         */
 
-        if (!data.success || data.status !== "completed") {
-
-    return success(res, "Webhook received.");
-
-        }
-
-
-        const serviceFee = Number(data.result.Amount) * 0.08;
-        
-        if (data.balanceType === "wallet") {
-
-            await walletService.topupWallet(
-    data.uid,
-    Number(data.result.Amount)
+        const transaction = await transactionService.getTransaction(
+    data.checkout_request_id
 );
 
-           await walletService.deductServiceBalance(
-    data.uid,
-    serviceFee
+if (!transaction.exists) {
+    return error(res, "Transaction not found.", 404);
+}
+
+const uid = transaction.data().uid;
+const balanceType = transaction.data().balanceType;
+
+if (balanceType === "wallet") {
+
+    await walletService.topupWallet(
+        uid,
+        Number(data.result.Amount)
+    );
+
+    await walletService.deductServiceBalance(
+        uid,
+        serviceFee
+    );
+
+} else if (balanceType === "service") {
+
+    await walletService.topupService(
+        uid,
+        Number(data.result.Amount)
+    );
+
+    }
+
+        await transactionService.updateTransaction(
+    data.checkout_request_id,
+    {
+        status: "SUCCESS",
+        amount: Number(data.result.Amount),
+        phone: data.result.Phone,
+        serviceFee,
+        transactionId: data.transaction_id,
+        merchantRequestId: data.merchant_request_id
+    }
 );
-
-        } else if (data.balanceType === "service") {
-
-            await walletService.topupService(
-                data.uid,
-                data.amount
-            );
-
-        }
-
-        await transactionService.saveTransaction({
-
-            uid: data.uid,
-
-            phone: data.result.Phone,
-
-            amount: Number(data.result.Amount),
-serviceFee,
-
-            transactionId: data.transaction_id,
-            checkoutRequestId: data.checkout_request_id,
-            merchantRequestId: data.merchant_request_id,
-
-            status: "SUCCESS",
-
-            type: "Deposit",
-
-            balanceType: data.balanceType
-
-        });
 
         return success(res, "Webhook processed successfully.");
 
