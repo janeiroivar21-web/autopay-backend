@@ -33,16 +33,16 @@ async function webhook(req, res) {
     data.checkout_request_id
 );
 
-// Prevent duplicate processing
-if (transaction.data().status === "SUCCESS") {
-    return success(res, "Transaction already processed.");
-}
-
-if (!transaction.exists) {
+if (!transaction) {
     return error(res, "Transaction not found.", 404);
 }
 
 const transactionData = transaction.data();
+
+// Prevent duplicate processing
+if (transactionData.status === "SUCCESS") {
+    return success(res, "Transaction already processed.");
+}
 
 const uid = transactionData.uid;
 const balanceType = transactionData.balanceType;
