@@ -37,7 +37,7 @@ if (!transactionData) {
         if (transactionData.status === "completed") {
 
             // Only process once
-            if (transaction && transaction.data().status !== "completed") {
+            if (transaction && transaction.data().status !== "SUCCESS") {
 
                 const amount = Number(transactionData.amount);
 
