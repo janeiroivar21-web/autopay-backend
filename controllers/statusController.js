@@ -6,15 +6,94 @@ async function checkStatus(req, res) {
 
     try {
 
-        const {
-            checkout_request_id,
-            uid,
-            balanceType
-        } = req.body;
+        let {
+    checkout_request_id,
+    uid,
+    balanceType
+} = req.body;
 
-        if (!checkout_request_id || !uid || !balanceType) {
-            return error(res, "Missing required fields.", 400);
+if (!checkout_request_id) {
+    return error(
+        res,
+        "checkout_request_id is required.",
+        400
+    );
+}
+
+// If uid is missing, identify merchant from API Key
+if (!uid) {
+
+    const admin = require("firebase-admin");
+    const db = admin.firestore();
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return error(
+            res,
+            "Authorization header is required.",
+            401
+        );
+    }
+
+    const apiKey = authHeader.startsWith("Bearer ")
+        ? authHeader.replace("Bearer ", "").trim()
+        : authHeader.trim();
+
+    const keySnap = await db
+        .collection("apiKeys")
+        .where("secretKey", "==", apiKey)
+        .limit(1)
+        .get();
+
+    if (keySnap.empty) {
+        return error(
+            res,
+            "Invalid API key.",
+            401
+        );
+    }
+
+    const keyDoc = keySnap.docs[0];
+    const keyData = keyDoc.data();
+
+    if (keyData.status !== "Active") {
+        return error(
+            res,
+            "API key is inactive.",
+            401
+        );
+    }
+
+    if (keyData.uid) {
+
+        uid = keyData.uid;
+
+    } else {
+
+        const userSnap = await db
+            .collection("users")
+            .where("merchantId", "==", keyData.merchantId)
+            .limit(1)
+            .get();
+
+        if (userSnap.empty) {
+            return error(
+                res,
+                "Merchant not found.",
+                404
+            );
         }
+
+        uid = userSnap.docs[0].id;
+
+        await keyDoc.ref.update({
+            uid
+        });
+
+    }
+
+    }
 
         const result = await swiftService.checkStatus(checkout_request_id);
 
@@ -62,9 +141,10 @@ if (!transactionData) {
         return res.json({
     success: true,
     status: transactionData.status,
+    checkout_request_id,
     amount: transactionData.amount,
     phone: transactionData.phone_number,
-    data: result
+    transaction
 });
 
     } catch (err) {
