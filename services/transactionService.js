@@ -78,3 +78,9 @@ async function updateTransaction(checkoutRequestId, updates) {
     });
 
 }
+
+module.exports = {
+    saveTransaction,
+    getTransaction,
+    updateTransaction
+};
