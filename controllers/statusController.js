@@ -1,6 +1,4 @@
 const swiftService = require("../services/swiftService");
-const walletService = require("../services/walletService");
-const transactionService = require("../services/transactionService");
 const { error } = require("../utils/response");
 
 async function checkStatus(req, res) {
