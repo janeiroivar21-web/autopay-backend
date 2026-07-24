@@ -49,20 +49,56 @@ if (!uid) {
     const apiKey = authHeader.replace("Bearer ", "").trim();
 
     const keySnap = await db
-        .collection("apiKeys")
-        .where("secretKey", "==", apiKey)
+    .collection("apiKeys")
+    .where("secretKey", "==", apiKey)
+    .limit(1)
+    .get();
+
+if (keySnap.empty) {
+    return error(
+        res,
+        "Invalid API key.",
+        401
+    );
+}
+
+const keyDoc = keySnap.docs[0];
+const keyData = keyDoc.data();
+
+// New API keys already contain uid
+if (keyData.uid) {
+
+    uid = keyData.uid;
+
+} else {
+
+    // Old API keys: locate merchant using merchantId
+    const userSnap = await db
+        .collection("users")
+        .where("merchantId", "==", keyData.merchantId)
         .limit(1)
         .get();
 
-    if (keySnap.empty) {
+    if (userSnap.empty) {
         return error(
             res,
-            "Invalid API key.",
-            401
+            "Merchant not found.",
+            404
         );
     }
 
-    uid = keySnap.docs[0].data().uid;
+    // Firebase document ID is the uid
+    uid = userSnap.docs[0].id;
+
+    // Upgrade old API key automatically
+    await keyDoc.ref.update({
+        uid
+    });
+
+    console.log("API Key upgraded with uid:", uid);
+
+}
+    
 }
 
 /*
