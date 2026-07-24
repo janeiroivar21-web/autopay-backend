@@ -38,16 +38,17 @@ if (!uid) {
 
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return error(
-            res,
-            "API key is required.",
-            401
-        );
-    }
+if (!authHeader) {
+    return error(
+        res,
+        "Authorization header is required.",
+        401
+    );
+}
 
-    const apiKey = authHeader.replace("Bearer ", "").trim();
-
+const apiKey = authHeader.startsWith("Bearer ")
+    ? authHeader.replace("Bearer ", "").trim()
+    : authHeader.trim();
     const keySnap = await db
     .collection("apiKeys")
     .where("secretKey", "==", apiKey)
@@ -64,6 +65,14 @@ if (keySnap.empty) {
 
 const keyDoc = keySnap.docs[0];
 const keyData = keyDoc.data();
+
+if (keyData.status !== "Active") {
+    return error(
+        res,
+        "API key is inactive.",
+        401
+    );
+}
 
 // New API keys already contain uid
 if (keyData.uid) {
