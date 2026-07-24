@@ -33,23 +33,10 @@ if (!transactionData) {
         PAYMENT SUCCESS
         =========================================
         */
-
         if (transactionData.status === "completed") {
 
-        if (transaction && transaction.data().status !== "SUCCESS") {
-
-        const amount = Number(transactionData.amount);
-
-        await transactionService.updateTransaction(
-    checkout_request_id,
-    {
-    
-        amount,
-        phone: transactionData.phone_number
-    }
-);
-
-    }
+    // Don't update the transaction or wallet here.
+    // The webhook will handle the wallet credit and transaction update.
 
         }
 
