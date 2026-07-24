@@ -52,23 +52,29 @@ async function updateTransaction(checkoutRequestId, updates) {
     const transaction = await getTransaction(checkoutRequestId);
 
     if (!transaction) {
-        return null;
+        return false;
     }
 
-    await transaction.ref.update({
+    return await admin.firestore().runTransaction(async (t) => {
 
-        ...updates,
+        const snap = await t.get(transaction.ref);
 
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        if (!snap.exists) {
+            return false;
+        }
+
+        // Already processed
+        if (snap.data().status === "SUCCESS") {
+            return false;
+        }
+
+        t.update(transaction.ref, {
+            ...updates,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        return true;
 
     });
 
-    return transaction.id;
-
 }
-
-module.exports = {
-    saveTransaction,
-    getTransaction,
-    updateTransaction
-};
