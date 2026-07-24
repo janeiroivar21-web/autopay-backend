@@ -10,14 +10,14 @@ async function stkPush(req, res) {
     console.log("Request Body:", req.body);
 
     try {
-        const {
+        let {
     uid,
     phone,
     amount,
     balanceType
 } = req.body;
 
-    console.log("STEP 1: Fields received");
+console.log("STEP 1: Fields received");
 console.log({
     uid,
     phone,
@@ -25,8 +25,44 @@ console.log({
     balanceType
 });
 
-if (!uid || !phone || !amount || !balanceType) {
-    return error(res, "Missing required fields.", 400);
+if (!phone || !amount || !balanceType) {
+    return error(
+        res,
+        "phone, amount and balanceType are required.",
+        400
+    );
+}
+
+// If uid is missing, identify merchant from API Key
+if (!uid) {
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return error(
+            res,
+            "API key is required.",
+            401
+        );
+    }
+
+    const apiKey = authHeader.replace("Bearer ", "").trim();
+
+    const keySnap = await db
+        .collection("apiKeys")
+        .where("secretKey", "==", apiKey)
+        .limit(1)
+        .get();
+
+    if (keySnap.empty) {
+        return error(
+            res,
+            "Invalid API key.",
+            401
+        );
+    }
+
+    uid = keySnap.docs[0].data().uid;
 }
 
 /*
