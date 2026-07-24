@@ -40,26 +40,14 @@ if (!transactionData) {
 
         const amount = Number(transactionData.amount);
 
-        const updated = await transactionService.updateTransaction(
+        await transactionService.updateTransaction(
     checkout_request_id,
     {
-        status: "SUCCESS",
+    
         amount,
         phone: transactionData.phone_number
     }
 );
-
-if (updated) {
-
-    if (balanceType === "wallet") {
-        await walletService.topupWallet(uid, amount);
-    } else if (balanceType === "service") {
-        await walletService.topupService(uid, amount);
-    }
-
-} else if (balanceType === "service") {
-            await walletService.topupService(uid, amount);
-        }
 
     }
 
