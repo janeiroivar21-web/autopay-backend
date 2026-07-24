@@ -60,6 +60,24 @@ if (data.result?.ResultCode !== 0) {
     return success(res, "Payment failed.");
 }
         
+const updated = await transactionService.updateTransaction(
+    data.checkout_request_id,
+    {
+        status: "SUCCESS",
+        amount: Number(data.result.Amount),
+        phone: data.result.Phone,
+        serviceFee,
+        transactionId: data.transaction_id,
+        merchantRequestId: data.merchant_request_id
+    }
+);
+
+// Another request already processed this payment
+if (!updated) {
+    return success(res, "Transaction already processed.");
+}
+
+// Credit the balance only once
 if (balanceType === "wallet") {
 
     await walletService.topupWallet(
@@ -79,19 +97,7 @@ if (balanceType === "wallet") {
         Number(data.result.Amount)
     );
 
-    }
-
-        await transactionService.updateTransaction(
-    data.checkout_request_id,
-    {
-        status: "SUCCESS",
-        amount: Number(data.result.Amount),
-        phone: data.result.Phone,
-        serviceFee,
-        transactionId: data.transaction_id,
-        merchantRequestId: data.merchant_request_id
-    }
-);
+}
 
         return success(res, "Webhook processed successfully.");
 
