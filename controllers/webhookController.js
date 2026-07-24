@@ -2,6 +2,7 @@ const walletService = require("../services/walletService");
 const transactionService = require("../services/transactionService");
 const { success, error } = require("../utils/response");
 
+const fetch = require("node-fetch");
 /*
 =========================================
 SWIFTWALLET WEBHOOK
@@ -99,6 +100,50 @@ if (balanceType === "wallet") {
 
 }
 
+        try {
+
+    const merchant = await walletService.getMerchant(uid);
+
+    if (merchant.webhookUrl) {
+
+        await fetch(merchant.webhookUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+
+                success: true,
+                status: "SUCCESS",
+
+                amount: Number(data.result.Amount),
+
+                phone: data.result.Phone,
+
+                transaction_id: data.transaction_id,
+
+                merchant_request_id:
+                    data.merchant_request_id,
+
+                checkout_request_id:
+                    data.checkout_request_id,
+
+                merchant_id: merchant.merchantId,
+
+                currency: merchant.currency || "KES"
+
+            })
+        });
+
+        console.log("Merchant webhook sent.");
+
+    }
+
+} catch (err) {
+
+    console.error("Merchant webhook failed:", err.message);
+
+    }
         return success(res, "Webhook processed successfully.");
 
     } catch (err) {
