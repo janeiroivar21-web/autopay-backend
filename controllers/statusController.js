@@ -36,21 +36,27 @@ if (!transactionData) {
 
         if (transactionData.status === "completed") {
 
-            // Only process once
-            if (transaction && transaction.data().status !== "SUCCESS") {
+        if (transaction && transaction.data().status !== "SUCCESS") {
 
-               const amount = Number(transactionData.amount);
+        const amount = Number(transactionData.amount);
 
-                await transactionService.updateTransaction(
-                    checkout_request_id,
-                    {
-                        status: "SUCCESS",
-                        amount,
-                        phone: transactionData.phone_number
-                    }
-                );
-
+        await transactionService.updateTransaction(
+            checkout_request_id,
+            {
+                status: "SUCCESS",
+                amount,
+                phone: transactionData.phone_number
             }
+        );
+
+        // Credit the correct balance
+        if (balanceType === "wallet") {
+            await walletService.topupWallet(uid, amount);
+        } else if (balanceType === "service") {
+            await walletService.topupService(uid, amount);
+        }
+
+    }
 
         }
 
