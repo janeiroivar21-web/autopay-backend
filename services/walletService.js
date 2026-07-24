@@ -16,11 +16,11 @@ async function topupWallet(uid, amount) {
         throw new Error("Merchant not found");
     }
 
-    const balance = Number(snap.data().walletBalance || 0);
+    const admin = require("firebase-admin");
 
-    await ref.update({
-        walletBalance: balance + Number(amount)
-    });
+await ref.update({
+    walletBalance: admin.firestore.FieldValue.increment(Number(amount))
+});
 
 }
 
@@ -40,20 +40,13 @@ async function topupService(uid, amount) {
         throw new Error("Merchant not found");
     }
 
-    const balance = Number(snap.data().serviceBalance || 0);
+    const admin = require("firebase-admin");
 
-    await ref.update({
-        serviceBalance: balance + Number(amount)
-    });
+await ref.update({
+    serviceBalance: admin.firestore.FieldValue.increment(Number(amount))
+});
 
 }
-
-module.exports = {
-    topupWallet,
-    topupService,
-    deductServiceBalance,
-    deductWallet
-};
 
 /*
 =========================================
@@ -110,3 +103,10 @@ async function deductWallet(uid, amount) {
     });
 
 }
+
+module.exports = {
+    topupWallet,
+    topupService,
+    deductServiceBalance,
+    deductWallet
+};
