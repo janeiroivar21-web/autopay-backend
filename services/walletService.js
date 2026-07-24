@@ -104,9 +104,30 @@ async function deductWallet(uid, amount) {
 
 }
 
+/*
+=========================================
+GET MERCHANT
+=========================================
+*/
+
+async function getMerchant(uid) {
+
+    const ref = users.doc(uid);
+
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+        throw new Error("Merchant not found");
+    }
+
+    return snap.data();
+
+}
+
 module.exports = {
     topupWallet,
     topupService,
     deductServiceBalance,
-    deductWallet
+    deductWallet,
+    getMerchant
 };
