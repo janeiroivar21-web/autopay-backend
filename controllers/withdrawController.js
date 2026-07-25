@@ -1,4 +1,3 @@
-const swiftService = require("../services/swiftService");
 const walletService = require("../services/walletService");
 const withdrawalService = require("../services/withdrawalService");
 const { generateReference } = require("../utils/reference");
@@ -43,29 +42,29 @@ if (walletBalance < Number(amount)) {
 
 await walletService.deductWallet(uid, amount);
 
-        const payout = await swiftService.payout(
-    phone,
-    payoutAmount,
-    reference
-);
-
         await withdrawalService.saveWithdrawal({
 
-            uid,
-            phone,
-            amount,
-            fee: withdrawalFee,
-            paid: payoutAmount,
-            reference,
-            status: "Pending"
+    uid,
+    phone,
+    amount,
+    fee: withdrawalFee,
+    paid: payoutAmount,
+    reference,
+    status: "Pending"
 
-        });
+});
 
-        return success(res, "Withdrawal initiated successfully.", {
-
-            payout
-
-        });
+return success(
+    res,
+    "Withdrawal request submitted successfully.",
+    {
+        reference,
+        status: "Pending",
+        amount,
+        fee: withdrawalFee,
+        payable: payoutAmount
+    }
+);
 
     } catch (err) {
 
