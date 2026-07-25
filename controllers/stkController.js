@@ -1,3 +1,4 @@
+const gatewayService = require("../services/gatewayService");
 const swiftService = require("../services/swiftService");
 const optimaService = require("../services/optimaService");
 const transactionService = require("../services/transactionService");
@@ -145,73 +146,10 @@ console.log("STEP 4: Sending STK Push");
 LOAD ACTIVE PAYMENT GATEWAY
 =========================================
 */
-
-const gatewayDoc = await db
-    .collection("config")
-    .doc("payment_gateway")
-    .get();
-
-let activeGateway = "swiftwallet";
-
-if (gatewayDoc.exists) {
-
-    activeGateway =
-        gatewayDoc.data().activeGateway ||
-        "swiftwallet";
-
-}
+const activeGateway =
+    await gatewayService.getActiveGateway();
 
 console.log("Active Gateway:", activeGateway);
-        
-let result;
-
-if (activeGateway === "optimapay") {
-
-    result = await optimaService.stkPush(
-
-        phone,
-
-        amount,
-
-        null,
-
-        merchant.fullName || "AUTOPAY Customer"
-
-    );
-
-} else {
-
-    result = await swiftService.stkPush(
-
-        phone,
-
-        amount,
-
-        null,
-
-        merchant.fullName || "AUTOPAY Customer"
-
-    );
-
-}
-        
-        const checkoutRequestId =
-            result.checkout_request_id ||
-            result.CheckoutRequestID ||
-            result.checkoutRequestId;
-
-        if (!checkoutRequestId) {
-    return error(
-        res,
-        "SwiftWallet did not return Checkout Request ID.",
-        500
-    );
-    }
-
-        const merchantRequestId =
-            result.merchant_request_id ||
-            result.MerchantRequestID ||
-            result.merchantRequestId;
 
         /*
         =========================================
