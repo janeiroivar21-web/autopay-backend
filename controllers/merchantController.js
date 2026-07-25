@@ -13,7 +13,11 @@ async function getMerchant(req, res) {
 
         const { uid } = req.params;
 
-        const merchant = await merchantService.getMerchant(uid);
+        console.log("Loading merchant UID:", uid);
+
+const merchant = await merchantService.getMerchant(uid);
+
+console.log("Merchant result:", merchant);
 
         if (!merchant) {
             return error(res, "Merchant not found.", 404);
@@ -25,9 +29,10 @@ async function getMerchant(req, res) {
 
     } catch (err) {
 
-        console.error(err);
+    console.error("GET MERCHANT ERROR");
+    console.error(err);
 
-        return error(res, "Unable to load merchant.");
+    return error(res, err.message);
 
     }
 
