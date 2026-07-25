@@ -147,13 +147,14 @@ SEND STK PUSH (OPTIMAPAY ONLY)
 
 console.log("Gateway: OptimaPay");
 
+const reference = `AUTO-${Date.now()}`;
+
 const result = await optimaService.stkPush(
     phone,
     amount,
-    null,
+    reference,
     merchant.fullName || "AUTOPAY Customer"
 );
-
         /*
         =========================================
         CREATE PENDING TRANSACTION
