@@ -11,11 +11,17 @@ GET MERCHANT
 
 async function getMerchant(uid) {
 
+    console.log("Reading users/" + uid);
+
     const doc = await users.doc(uid).get();
+
+    console.log("Document exists:", doc.exists);
 
     if (!doc.exists) {
         return null;
     }
+
+    console.log("Merchant data:", doc.data());
 
     return {
         id: doc.id,
@@ -23,7 +29,6 @@ async function getMerchant(uid) {
     };
 
 }
-
 /*
 =========================================
 CHECK MERCHANT EXISTS
