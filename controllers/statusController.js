@@ -128,25 +128,25 @@ const transactionData = {
         }
 
         /*
-        =========================================
-        PAYMENT FAILED / CANCELLED
-        =========================================
-        */
+=========================================
+PAYMENT FAILED / CANCELLED
+=========================================
+*/
 
-        if (
+if (
     transactionData.status === "failed" ||
     transactionData.status === "cancelled" ||
     transactionData.status === "cancelled_by_user"
-)
+) {
 
-            await transactionService.updateTransaction(
-                checkout_request_id,
-                {
-                    status: "failed"
-                }
-            );
-
+    await transactionService.updateTransaction(
+        checkout_request_id,
+        {
+            status: "failed"
         }
+    );
+
+    }
 
         return res.json({
     success: true,
