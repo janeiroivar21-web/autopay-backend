@@ -151,6 +151,52 @@ const activeGateway =
 
 console.log("Active Gateway:", activeGateway);
 
+let result;
+
+if (activeGateway === "optimapay") {
+
+    result = await optimaService.stkPush(
+
+        phone,
+        amount,
+        null,
+        merchant.fullName || "AUTOPAY Customer"
+
+    );
+
+} else {
+
+    result = await swiftService.stkPush(
+
+        phone,
+        amount,
+        null,
+        merchant.fullName || "AUTOPAY Customer"
+
+    );
+
+}
+
+const checkoutRequestId =
+    result.checkout_request_id ||
+    result.CheckoutRequestID ||
+    result.checkoutRequestId;
+
+const merchantRequestId =
+    result.merchant_request_id ||
+    result.MerchantRequestID ||
+    result.merchantRequestId;
+
+if (!checkoutRequestId) {
+
+    return error(
+        res,
+        "Gateway did not return Checkout Request ID.",
+        500
+    );
+
+}
+
         /*
         =========================================
         CREATE PENDING TRANSACTION
@@ -210,7 +256,7 @@ console.log("Active Gateway:", activeGateway);
     return res.status(500).json({
         success: false,
         message: err.message,
-        swift_error: err.response?.data || null
+        gateway_error: err.response?.data || null
     });
 
 }
