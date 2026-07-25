@@ -1,4 +1,4 @@
-const swiftService = require("../services/swiftService");
+const optimaService = require("../services/optimaService");
 const transactionService = require("../services/transactionService");
 const { error } = require("../utils/response");
 
@@ -95,13 +95,22 @@ if (!uid) {
 
     }
 
-        const result = await swiftService.checkStatus(checkout_request_id);
+        const result = await optimaService.checkStatus(checkout_request_id);
 
-const transactionData = result.data?.transaction;
-
-if (!transactionData) {
-    return error(res, "Transaction not found.", 404);
+if (!result.success) {
+    return error(
+        res,
+        result.message || "Transaction not found.",
+        404
+    );
 }
+
+const transactionData = {
+    status: result.status,
+    amount: result.amount,
+    phone_number: result.phone,
+    transaction_code: result.transaction_code
+};
 
         const transaction =
             await transactionService.getTransaction(checkout_request_id);
@@ -126,8 +135,9 @@ if (!transactionData) {
 
         if (
     transactionData.status === "failed" ||
-    transactionData.status === "cancelled"
-) {
+    transactionData.status === "cancelled" ||
+    transactionData.status === "cancelled_by_user"
+)
 
             await transactionService.updateTransaction(
                 checkout_request_id,
