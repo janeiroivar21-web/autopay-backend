@@ -1,156 +1,186 @@
+const fetch = require("node-fetch");
+
 const walletService = require("../services/walletService");
 const transactionService = require("../services/transactionService");
 const { success, error } = require("../utils/response");
 
-const fetch = require("node-fetch");
 /*
 =========================================
-SWIFTWALLET WEBHOOK
+OPTIMAPAY WEBHOOK
 =========================================
 */
+
 async function webhook(req, res) {
 
     try {
 
         const data = req.body;
 
-        console.log("Webhook Received:", data);
+        console.log("========== OPTIMAPAY WEBHOOK ==========");
+        console.log(JSON.stringify(data, null, 2));
+
+        if (!data.reference) {
+            return error(res, "Missing transaction reference.", 400);
+        }
+
+        const transaction =
+            await transactionService.getTransactionByReference(
+                data.reference
+            );
+
+        if (!transaction) {
+            return error(res, "Transaction not found.", 404);
+        }
+
+        const transactionData = transaction.data();
+
+        // Prevent duplicate processing
+        if (transactionData.status === "SUCCESS") {
+            return success(res, "Transaction already processed.");
+        }
+
+        const uid = transactionData.uid;
+        const balanceType = transactionData.balanceType;
+        const serviceFee = transactionData.serviceFee || 0;
 
         /*
-        Expected payload example:
-
-        {
-            uid: "merchant_uid",
-            phone: "254712345678",
-            amount: 1000,
-            balanceType: "wallet",
-            status: "SUCCESS",
-            transactionId: "TXN12345"
-        }
-
+        =========================================
+        PAYMENT FAILED
+        =========================================
         */
 
-        const transaction = await transactionService.getTransaction(
-    data.checkout_request_id
-);
+        if (
+            data.status !== "success" &&
+            data.status !== "completed"
+        ) {
 
-if (!transaction) {
-    return error(res, "Transaction not found.", 404);
-}
+            await transaction.ref.update({
+                status: "FAILED"
+            });
 
-const transactionData = transaction.data();
-
-// Prevent duplicate processing
-if (transactionData.status === "SUCCESS") {
-    return success(res, "Transaction already processed.");
-}
-
-const uid = transactionData.uid;
-const balanceType = transactionData.balanceType;
-const serviceFee = transactionData.serviceFee || 0;
-
-if (data.result?.ResultCode !== 0) {
-
-    await transactionService.updateTransaction(
-        data.checkout_request_id,
-        {
-            status: "FAILED"
+            return success(res, "Payment failed.");
         }
-    );
 
-    return success(res, "Payment failed.");
-}
-        
-const updated = await transactionService.updateTransaction(
-    data.checkout_request_id,
-    {
-        status: "SUCCESS",
-        amount: Number(data.result.Amount),
-        phone: data.result.Phone,
-        serviceFee,
-        transactionId: data.transaction_id,
-        merchantRequestId: data.merchant_request_id
-    }
-);
+        /*
+        =========================================
+        UPDATE TRANSACTION
+        =========================================
+        */
 
-// Another request already processed this payment
-if (!updated) {
-    return success(res, "Transaction already processed.");
-}
+        await transaction.ref.update({
 
-// Credit the balance only once
-if (balanceType === "wallet") {
+            status: "SUCCESS",
 
-    await walletService.topupWallet(
-        uid,
-        Number(data.result.Amount)
-    );
+            amount: Number(data.amount),
 
-    await walletService.deductServiceBalance(
-        uid,
-        serviceFee
-    );
+            phone: data.phone,
 
-} else if (balanceType === "service") {
+            transactionId: data.transaction_id,
 
-    await walletService.topupService(
-        uid,
-        Number(data.result.Amount)
-    );
+            mpesaReceipt: data.mpesa_receipt || null,
 
-}
+            updatedAt: new Date()
+
+        });
+
+        /*
+        =========================================
+        CREDIT BALANCES
+        =========================================
+        */
+
+        if (balanceType === "wallet") {
+
+            await walletService.topupWallet(
+                uid,
+                Number(data.amount)
+            );
+
+            await walletService.deductServiceBalance(
+                uid,
+                serviceFee
+            );
+
+        } else if (balanceType === "service") {
+
+            await walletService.topupService(
+                uid,
+                Number(data.amount)
+            );
+
+        }
+
+        /*
+        =========================================
+        FORWARD TO MERCHANT WEBHOOK
+        =========================================
+        */
 
         try {
 
-    const merchant = await walletService.getMerchant(uid);
+            const merchant =
+                await walletService.getMerchant(uid);
 
-    if (merchant.webhookUrl) {
+            if (merchant?.webhookUrl) {
 
-        await fetch(merchant.webhookUrl, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
+                await fetch(merchant.webhookUrl, {
 
-                success: true,
-                status: "SUCCESS",
+                    method: "POST",
 
-                amount: Number(data.result.Amount),
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
 
-                phone: data.result.Phone,
+                    body: JSON.stringify({
 
-                transaction_id: data.transaction_id,
+                        success: true,
 
-                merchant_request_id:
-                    data.merchant_request_id,
+                        status: "SUCCESS",
 
-                checkout_request_id:
-                    data.checkout_request_id,
+                        amount: Number(data.amount),
 
-                merchant_id: merchant.merchantId,
+                        phone: data.phone,
 
-                currency: merchant.currency || "KES"
+                        transaction_id: data.transaction_id,
 
-            })
-        });
+                        mpesa_receipt: data.mpesa_receipt,
 
-        console.log("Merchant webhook sent.");
+                        reference: data.reference,
 
-    }
+                        merchant_id: merchant.merchantId,
 
-} catch (err) {
+                        currency: merchant.currency || "KES"
 
-    console.error("Merchant webhook failed:", err.message);
+                    })
 
-    }
-        return success(res, "Webhook processed successfully.");
+                });
+
+                console.log("Merchant webhook sent.");
+
+            }
+
+        } catch (err) {
+
+            console.error(
+                "Merchant webhook failed:",
+                err.message
+            );
+
+        }
+
+        return success(
+            res,
+            "Webhook processed successfully."
+        );
 
     } catch (err) {
 
         console.error(err);
 
-        return error(res, "Webhook processing failed.");
+        return error(
+            res,
+            "Webhook processing failed."
+        );
 
     }
 
