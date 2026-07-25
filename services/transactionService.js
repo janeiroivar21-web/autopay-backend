@@ -22,7 +22,7 @@ async function saveTransaction(data) {
 
 /*
 =========================================
-GET TRANSACTION
+GET TRANSACTION BY CHECKOUT REQUEST ID
 =========================================
 */
 
@@ -30,6 +30,27 @@ async function getTransaction(checkoutRequestId) {
 
     const snapshot = await transactions
         .where("checkoutRequestId", "==", checkoutRequestId)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) {
+        return null;
+    }
+
+    return snapshot.docs[0];
+
+}
+
+/*
+=========================================
+GET TRANSACTION BY REFERENCE
+=========================================
+*/
+
+async function getTransactionByReference(reference) {
+
+    const snapshot = await transactions
+        .where("reference", "==", reference)
         .limit(1)
         .get();
 
@@ -63,7 +84,6 @@ async function updateTransaction(checkoutRequestId, updates) {
             return false;
         }
 
-        // Already processed
         if (snap.data().status === "SUCCESS") {
             return false;
         }
@@ -82,5 +102,6 @@ async function updateTransaction(checkoutRequestId, updates) {
 module.exports = {
     saveTransaction,
     getTransaction,
+    getTransactionByReference,
     updateTransaction
 };
