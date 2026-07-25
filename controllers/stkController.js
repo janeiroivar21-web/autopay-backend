@@ -1,4 +1,5 @@
 const swiftService = require("../services/swiftService");
+const optimaService = require("../services/optimaService");
 const transactionService = require("../services/transactionService");
 const { success, error } = require("../utils/response");
 const admin = require("firebase-admin");
@@ -138,13 +139,61 @@ if (!merchant.merchantId) {
 }
 
 console.log("STEP 4: Sending STK Push");
+
+/*
+=========================================
+LOAD ACTIVE PAYMENT GATEWAY
+=========================================
+*/
+
+const gatewayDoc = await db
+    .collection("config")
+    .doc("payment_gateway")
+    .get();
+
+let activeGateway = "swiftwallet";
+
+if (gatewayDoc.exists) {
+
+    activeGateway =
+        gatewayDoc.data().activeGateway ||
+        "swiftwallet";
+
+}
+
+console.log("Active Gateway:", activeGateway);
         
-const result = await swiftService.stkPush(
-    phone,
-    amount,
-    null,
-    merchant.fullName || "AUTOPAY Customer"
-);
+let result;
+
+if (activeGateway === "optimapay") {
+
+    result = await optimaService.stkPush(
+
+        phone,
+
+        amount,
+
+        null,
+
+        merchant.fullName || "AUTOPAY Customer"
+
+    );
+
+} else {
+
+    result = await swiftService.stkPush(
+
+        phone,
+
+        amount,
+
+        null,
+
+        merchant.fullName || "AUTOPAY Customer"
+
+    );
+
+}
         
         const checkoutRequestId =
             result.checkout_request_id ||
@@ -175,6 +224,8 @@ const result = await swiftService.stkPush(
     uid,
 
     merchantId: merchant.merchantId,
+
+    gateway: activeGateway,
 
     phone,
 
