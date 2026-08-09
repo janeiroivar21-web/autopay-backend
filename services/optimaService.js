@@ -11,6 +11,11 @@ const HEADERS = {
     "Content-Type": "application/json"
 };
 
+console.log("===== OPTIMAPAY CONFIG =====");
+console.log("API KEY:", process.env.OPTIMA_API_KEY);
+console.log("ACCOUNT ID:", process.env.OPTIMA_PAYMENT_ACCOUNT_ID);
+console.log("============================");
+
 /*
 =========================================
 SEND STK PUSH
@@ -25,13 +30,22 @@ async function stkPush(
 ) {
     try {
 
-        const payload = {
-            payment_account_id: Number(process.env.OPTIMA_PAYMENT_ACCOUNT_ID),
-            phone: formatPhone(phone),
-            amount: Math.round(Number(amount)),
-            reference: reference || `AUTO-${Date.now()}`,
-            description: customerName
-        };
+        const formattedPhone = formatPhone(phone);
+
+console.log("Original Phone:", phone);
+console.log("Formatted Phone:", formattedPhone);
+
+const payload = {
+    payment_account_id: Number(process.env.OPTIMA_PAYMENT_ACCOUNT_ID),
+    phone: formattedPhone,
+    amount: Math.round(Number(amount)),
+    reference: reference || `AUTO-${Date.now()}`,
+    description: customerName
+};
+
+        console.log("========== STK PAYLOAD ==========");
+        console.log(JSON.stringify(payload, null, 2));
+        console.log("=================================");
 
         log("Sending OptimaPay STK Push", payload);
 
