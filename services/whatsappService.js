@@ -40,50 +40,19 @@ async function sendMerchantNotification(uid, message) {
 
         }
 
-
-        /*
-        =========================================
-        LOAD SETTINGS
-        =========================================
-        */
-
-        const settingsRef =
-            db.collection("settings").doc(uid);
-
-        const settingsDoc =
-            await settingsRef.get();
-
-        if (!settingsDoc.exists) {
-
-            console.log(
-                "Merchant settings not found."
-            );
-
-            return false;
-
-        }
-
-        const settings =
-            settingsDoc.data();
+        const merchant = merchantDoc.data();
 
 
         /*
         =========================================
-        CHECK WHATSAPP NOTIFICATIONS
-        =========================================
-
-        This is the AUTHORITATIVE setting.
-
-        settings/{uid}
-
-        whatsappNotifications
+        CHECK WHATSAPP ENABLED
         =========================================
         */
 
-        if (settings.whatsappNotifications !== true) {
+        if (merchant.whatsappEnabled !== true) {
 
             console.log(
-                "WhatsApp notifications are disabled in settings."
+                "WhatsApp notifications are disabled."
             );
 
             return false;
@@ -93,17 +62,11 @@ async function sendMerchantNotification(uid, message) {
 
         /*
         =========================================
-        GET WHATSAPP NUMBER
+        CHECK WHATSAPP NUMBER
         =========================================
         */
 
-        const whatsappNumber =
-            settings.whatsappNumber ||
-            merchantDoc.data().whatsappNumber ||
-            "";
-
-
-        if (!whatsappNumber) {
+        if (!merchant.whatsappNumber) {
 
             console.log(
                 "Merchant has no WhatsApp number."
@@ -119,9 +82,6 @@ async function sendMerchantNotification(uid, message) {
         CHECK WHATSAPP COINS
         =========================================
         */
-
-        const merchant =
-            merchantDoc.data();
 
         const whatsappCoins =
             Number(merchant.whatsappCoins || 0);
@@ -159,20 +119,17 @@ async function sendMerchantNotification(uid, message) {
             "https://global.optimapaybridge.co.ke/api/v2/whatsapp/send",
 
             {
-
                 instance_id:
                     process.env.WHATSAPP_INSTANCE_ID,
 
                 to:
-                    whatsappNumber,
+                    merchant.whatsappNumber,
 
                 body:
                     message
-
             },
 
             {
-
                 headers: {
 
                     "Content-Type":
@@ -199,7 +156,7 @@ async function sendMerchantNotification(uid, message) {
 
         /*
         =========================================
-        CHECK WHATSAPP API RESPONSE
+        CHECK API SUCCESS
         =========================================
         */
 
@@ -242,55 +199,56 @@ async function sendMerchantNotification(uid, message) {
 
         /*
         =========================================
-        DEDUCT ONE COIN
+        DEDUCT ONE WHATSAPP COIN
         =========================================
 
-        Use a Firestore transaction so the
-        latest balance is checked again.
+        IMPORTANT:
+        Use a Firestore transaction so two
+        notifications cannot spend the same coin.
         =========================================
         */
 
-        let transactionResult = null;
+        let deductionSuccessful = false;
 
 
         await db.runTransaction(async (transaction) => {
 
-            const latestMerchant =
+            const latestSnap =
                 await transaction.get(merchantRef);
 
 
-            if (!latestMerchant.exists) {
+            if (!latestSnap.exists) {
 
                 throw new Error(
-                    "Merchant no longer exists."
+                    "Merchant not found during coin deduction."
                 );
 
             }
 
 
             const latestData =
-                latestMerchant.data();
+                latestSnap.data();
 
 
-            const latestCoins =
+            const currentCoins =
                 Number(
                     latestData.whatsappCoins || 0
                 );
 
 
             console.log(
-                "Latest WhatsApp Coins:",
-                latestCoins
+                "Coins before deduction:",
+                currentCoins
             );
 
 
             /*
             =========================================
-            FINAL BALANCE CHECK
+            DOUBLE CHECK BALANCE
             =========================================
             */
 
-            if (latestCoins < 1) {
+            if (currentCoins < 1) {
 
                 throw new Error(
                     "Insufficient WhatsApp Coins."
@@ -306,32 +264,33 @@ async function sendMerchantNotification(uid, message) {
             */
 
             transaction.update(
-
                 merchantRef,
-
                 {
 
                     whatsappCoins:
-                        admin.firestore.FieldValue
-                            .increment(-1),
+                        admin.firestore.FieldValue.increment(-1),
 
                     totalMessagesSent:
-                        admin.firestore.FieldValue
-                            .increment(1)
+                        admin.firestore.FieldValue.increment(1)
 
                 }
-
             );
 
 
-            transactionResult = {
-
-                remainingCoins:
-                    latestCoins - 1
-
-            };
+            deductionSuccessful = true;
 
         });
+
+
+        if (!deductionSuccessful) {
+
+            console.log(
+                "WhatsApp coin deduction failed."
+            );
+
+            return false;
+
+        }
 
 
         /*
@@ -340,49 +299,37 @@ async function sendMerchantNotification(uid, message) {
         =========================================
         */
 
-        const messageRef =
-            await merchantRef
-                .collection("messagesSent")
-                .add({
+        await merchantRef
+            .collection("messagesSent")
+            .add({
 
-                    uid,
+                uid,
 
-                    to:
-                        whatsappNumber,
+                to:
+                    merchant.whatsappNumber,
 
-                    message,
+                message,
 
-                    status:
-                        apiStatus || "QUEUED",
+                status:
+                    apiStatus || "QUEUED",
 
-                    instanceId:
-                        process.env.WHATSAPP_INSTANCE_ID,
+                instanceId:
+                    process.env.WHATSAPP_INSTANCE_ID,
 
-                    coinsUsed: 1,
+                createdAt:
+                    admin.firestore.FieldValue
+                        .serverTimestamp()
 
-                    remainingCoins:
-                        transactionResult.remainingCoins,
-
-                    createdAt:
-                        admin.firestore.FieldValue
-                            .serverTimestamp()
-
-                });
+            });
 
 
         console.log(
-            "WhatsApp message recorded:",
-            messageRef.id
+            "WhatsApp message recorded."
         );
 
 
         console.log(
-            "1 WhatsApp coin deducted."
-        );
-
-        console.log(
-            "Remaining WhatsApp Coins:",
-            transactionResult.remainingCoins
+            "1 WhatsApp coin deducted successfully."
         );
 
 
@@ -429,14 +376,9 @@ TOP UP WHATSAPP COINS
 
 async function topupWhatsappCoins(uid, amount) {
 
-    const value =
-        Number(amount);
+    const value = Number(amount);
 
-
-    if (
-        !Number.isFinite(value) ||
-        value <= 0
-    ) {
+    if (!Number.isFinite(value) || value <= 0) {
 
         throw new Error(
             "Invalid WhatsApp coin amount."
@@ -448,8 +390,7 @@ async function topupWhatsappCoins(uid, amount) {
     await users.doc(uid).update({
 
         whatsappCoins:
-            admin.firestore.FieldValue
-                .increment(value)
+            admin.firestore.FieldValue.increment(value)
 
     });
 
