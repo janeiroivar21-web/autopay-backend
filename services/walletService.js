@@ -1,4 +1,11 @@
-const { users } = require("./firestoreService");
+const {
+    users,
+    settings,
+    transactions,
+    db
+} = require("./firestoreService");
+
+const admin = require("firebase-admin");
 
 /*
 =========================================
@@ -15,8 +22,6 @@ async function topupWallet(uid, amount) {
     if (!snap.exists) {
         throw new Error("Merchant not found");
     }
-
-    const admin = require("firebase-admin");
 
 await ref.update({
     walletBalance: admin.firestore.FieldValue.increment(Number(amount))
@@ -40,11 +45,117 @@ async function topupService(uid, amount) {
         throw new Error("Merchant not found");
     }
 
-    const admin = require("firebase-admin");
-
 await ref.update({
     serviceBalance: admin.firestore.FieldValue.increment(Number(amount))
 });
+
+}
+
+/*
+=========================================
+AUTO SERVICE TOP-UP
+=========================================
+*/
+
+async function autoServiceTopup(uid) {
+
+    const userRef = users.doc(uid);
+    const settingsRef = settings.doc(uid);
+
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+        throw new Error("Merchant not found");
+    }
+
+    const settingsSnap = await settingsRef.get();
+
+    if (!settingsSnap.exists) {
+        return;
+    }
+
+    const merchant = userSnap.data();
+    const config = settingsSnap.data();
+
+    if (!config.autoTopupEnabled) {
+        return;
+    }
+
+    const serviceBalance =
+        Number(merchant.serviceBalance || 0);
+
+    const walletBalance =
+        Number(merchant.walletBalance || 0);
+
+    const threshold =
+        Number(config.autoTopupThreshold || 0);
+
+    const topupAmount =
+        Number(config.autoTopupAmount || 0);
+
+    if (serviceBalance > threshold) {
+        return;
+    }
+
+    if (walletBalance < topupAmount) {
+
+        console.log(
+            "Auto Top-up skipped: Wallet balance too low."
+        );
+
+        return;
+
+    }
+
+    await userRef.update({
+
+        walletBalance:
+            walletBalance - topupAmount,
+
+        serviceBalance:
+            serviceBalance + topupAmount
+
+    });
+
+    const reference = `AUTO-${Date.now()}`;
+
+await transactions.add({
+
+    uid,
+
+    merchantId: merchant.merchantId || "",
+
+    gateway: "AUTOPAY",
+
+    reference,
+
+    checkoutRequestId: reference,
+
+    merchantRequestId: null,
+
+    phone: merchant.phone || "",
+
+    amount: topupAmount,
+
+    serviceFee: 0,
+
+    status: "SUCCESS",
+
+    type: "Auto Service Top-up",
+
+    balanceType: "service",
+
+    description:
+        "Automatic transfer from Wallet Balance to Service Balance.",
+
+    createdAt:
+        admin.firestore.FieldValue.serverTimestamp()
+
+});
+
+    console.log(
+        `Auto Service Top-up completed for ${uid}`
+    );
 
 }
 
@@ -71,8 +182,11 @@ async function deductServiceBalance(uid, amount) {
     }
 
     await ref.update({
-        serviceBalance: balance - Number(amount)
-    });
+    serviceBalance: balance - Number(amount)
+});
+
+// Check whether Auto Service Top-up should run
+await autoServiceTopup(uid);
 
 }
 
@@ -86,20 +200,24 @@ async function deductWallet(uid, amount) {
 
     const ref = users.doc(uid);
 
-    const snap = await ref.get();
+    await db.runTransaction(async (transaction) => {
 
-    if (!snap.exists) {
-        throw new Error("Merchant not found");
-    }
+        const snap = await transaction.get(ref);
 
-    const balance = Number(snap.data().walletBalance || 0);
+        if (!snap.exists) {
+            throw new Error("Merchant not found");
+        }
 
-    if (balance < Number(amount)) {
-        throw new Error("Insufficient wallet balance");
-    }
+        const balance = Number(snap.data().walletBalance || 0);
 
-    await ref.update({
-        walletBalance: balance - Number(amount)
+        if (balance < Number(amount)) {
+            throw new Error("Insufficient wallet balance");
+        }
+
+        transaction.update(ref, {
+            walletBalance: balance - Number(amount)
+        });
+
     });
 
 }
@@ -127,6 +245,7 @@ async function getMerchant(uid) {
 module.exports = {
     topupWallet,
     topupService,
+    autoServiceTopup,
     deductServiceBalance,
     deductWallet,
     getMerchant
