@@ -1,5 +1,6 @@
 const optimaService = require("../services/optimaService");
 const transactionService = require("../services/transactionService");
+const walletService = require("../services/walletService");
 const { success, error } = require("../utils/response");
 const admin = require("firebase-admin");
 const db = admin.firestore();
@@ -119,7 +120,7 @@ CALCULATE SERVICE FEE
 
 console.log("STEP 2: Skipping Wallet API Check");
 
-const requiredFee = Number(amount) * 0.08;
+const requiredFee = Number(amount) * 0.06;
 
 console.log("STEP 3: Loading Merchant");
 
@@ -135,6 +136,41 @@ const merchant = userDoc.data();
 
 if (!merchant.merchantId) {
     return error(res, "Merchant ID not found.", 400);
+}
+/*
+=========================================
+CHECK SERVICE BALANCE
+(ONLY FOR WALLET TOP-UP)
+=========================================
+*/
+
+if (balanceType === "wallet") {
+
+    // Try automatic top-up if enabled
+    await walletService.autoServiceTopup(uid);
+
+    // Reload merchant after auto top-up
+    const refreshedUserDoc = await db
+        .collection("users")
+        .doc(uid)
+        .get();
+
+    const refreshedMerchant = refreshedUserDoc.data();
+
+    const serviceBalance = Number(
+        refreshedMerchant.serviceBalance ?? 0
+    );
+
+    if (serviceBalance < requiredFee) {
+
+        return error(
+            res,
+            `Insufficient Service Balance. Required: KES ${requiredFee.toFixed(2)}, Available: KES ${serviceBalance.toFixed(2)}. Please top up your Service Balance.`,
+            400
+        );
+
+    }
+
 }
 
 console.log("STEP 4: Sending STK Push");
@@ -207,6 +243,75 @@ const merchantRequestId =
     balanceType
 
 });
+
+  /*
+=========================================
+AUTO FAIL AFTER 2 MINUTES 30 SECONDS
+=========================================
+*/
+
+setTimeout(async () => {
+
+    try {
+
+        const tx =
+            await transactionService.getTransaction(
+                checkoutRequestId
+            );
+
+        if (!tx) return;
+
+        const txData = tx.data();
+
+        if (
+    String(txData.status).toUpperCase() === "PENDING"
+) {
+
+    // Final check with OptimaPay
+    const result = await optimaService.checkStatus(
+        checkoutRequestId
+    );
+
+    const paymentStatus =
+        String(result.status || "").toUpperCase();
+
+    if (
+        paymentStatus === "SUCCESS" ||
+        paymentStatus === "COMPLETED"
+    ) {
+
+        console.log(
+            "Payment completed before timeout:",
+            checkoutRequestId
+        );
+
+        return;
+
+    }
+
+    await tx.ref.update({
+        status: "FAILED",
+        failureReason: "TIMEOUT",
+        updatedAt: new Date()
+    });
+
+    console.log(
+        "Transaction timed out:",
+        checkoutRequestId
+    );
+
+}
+
+    } catch (err) {
+
+        console.error(
+            "Timeout check failed:",
+            err.message
+        );
+
+    }
+
+}, 150000); // 2 minutes 30 seconds
 
         return success(
             res,
