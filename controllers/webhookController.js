@@ -2,6 +2,7 @@ const fetch = require("node-fetch");
 
 const walletService = require("../services/walletService");
 const transactionService = require("../services/transactionService");
+const whatsappService = require("../services/whatsappService");
 const { success, error } = require("../utils/response");
 
 /*
@@ -16,17 +17,33 @@ async function webhook(req, res) {
 
         const data = req.body;
 
-        console.log("========== OPTIMAPAY WEBHOOK ==========");
-        console.log(JSON.stringify(data, null, 2));
+console.log("========== OPTIMAPAY WEBHOOK ==========");
+console.log(JSON.stringify(data, null, 2));
 
-        if (!data.reference) {
-            return error(res, "Missing transaction reference.", 400);
-        }
+// Ignore unsuccessful webhooks
+if (data.success !== true) {
 
-        const transaction =
-            await transactionService.getTransactionByReference(
-                data.reference
-            );
+    return success(
+        res,
+        "Ignoring unsuccessful webhook."
+    );
+
+}
+        const checkoutRequestId =
+    data.checkout_request_id || data.reference;
+
+if (!checkoutRequestId) {
+    return error(
+        res,
+        "Missing checkout_request_id.",
+        400
+    );
+}
+
+const transaction =
+    await transactionService.getTransaction(
+        checkoutRequestId
+    );
 
         if (!transaction) {
             return error(res, "Transaction not found.", 404);
@@ -35,9 +52,19 @@ async function webhook(req, res) {
         const transactionData = transaction.data();
 
         // Prevent duplicate processing
-        if (transactionData.status === "SUCCESS") {
-            return success(res, "Transaction already processed.");
-        }
+if (
+    String(transactionData.status || "").toUpperCase() === "SUCCESS"
+) {
+    console.log(
+        "Transaction already processed:",
+        checkoutRequestId
+    );
+
+    return success(
+        res,
+        "Transaction already processed."
+    );
+}
 
         const uid = transactionData.uid;
         const balanceType = transactionData.balanceType;
@@ -49,66 +76,184 @@ async function webhook(req, res) {
         =========================================
         */
 
-        if (
-            data.status !== "success" &&
-            data.status !== "completed"
-        ) {
+        const paymentStatus =
+    String(data.status || "").toUpperCase();
 
-            await transaction.ref.update({
-                status: "FAILED"
-            });
+if (
+    paymentStatus !== "SUCCESS" &&
+    paymentStatus !== "COMPLETED"
+) {
 
-            return success(res, "Payment failed.");
-        }
+    await transaction.ref.update({
+        status: "FAILED",
+        updatedAt: new Date()
+    });
+
+    return success(
+        res,
+        "Payment failed."
+    );
+
+}
 
         /*
-        =========================================
-        UPDATE TRANSACTION
-        =========================================
-        */
+=========================================
+UPDATE TRANSACTION
+=========================================
+*/
 
-        await transaction.ref.update({
-
+const updated =
+    await transactionService.updateTransaction(
+        checkoutRequestId,
+        {
             status: "SUCCESS",
-
             amount: Number(data.amount),
-
             phone: data.phone,
-
             transactionId: data.transaction_id,
-
             mpesaReceipt: data.mpesa_receipt || null,
-
             updatedAt: new Date()
+        }
+    );
 
+// Another request already processed this payment
+if (!updated) {
+
+    console.log(
+        "Transaction already processed:",
+        checkoutRequestId
+    );
+
+    return success(
+        res,
+        "Transaction already processed."
+    );
+
+}
+
+        /*
+=========================================
+CREDIT BALANCES
+=========================================
+*/
+
+if (balanceType === "wallet") {
+
+    console.log("========== CREDITING WALLET ==========");
+    console.log("UID:", uid);
+    console.log("Amount:", Number(data.amount));
+
+    await walletService.topupWallet(
+        uid,
+        Number(data.amount)
+    );
+
+    await walletService.deductServiceBalance(
+        uid,
+        serviceFee
+    );
+
+    const merchantAfterCredit =
+        await walletService.getMerchant(uid);
+
+    console.log(
+        "Wallet Balance After Credit:",
+        merchantAfterCredit.walletBalance
+    );
+    
+await whatsappService.sendMerchantNotification(
+    uid,
+`ðŸ’° Wallet Top-up Successful
+
+Amount: KES ${Number(data.amount).toLocaleString()}
+
+Your wallet has been credited successfully.
+
+New Wallet Balance:
+KES ${Number(merchantAfterCredit.walletBalance).toLocaleString()}
+
+Thank you for choosing AUTOPAY.`
+);
+
+} else if (balanceType === "service") {
+
+    console.log("========== CREDITING SERVICE BALANCE ==========");
+    console.log("UID:", uid);
+    console.log("Amount:", Number(data.amount));
+
+    console.log("========== SERVICE TOPUP DEBUG ==========");
+    console.log("Transaction UID:", uid);
+    console.log("Amount:", Number(data.amount));
+
+await walletService.topupService(
+    uid,
+    Number(data.amount)
+);
+
+const merchantAfterCredit =
+    await walletService.getMerchant(uid);
+    
+   await whatsappService.sendMerchantNotification(
+    uid,
+`âœ… Service Top-up Successful
+
+Amount: KES ${Number(data.amount).toLocaleString()}
+
+Your service balance has been credited successfully.
+
+New Service Balance:
+KES ${Number(merchantAfterCredit.serviceBalance).toLocaleString()}
+
+Thank you for using AUTOPAY.`
+);
+
+console.log("Merchant Document:");
+console.log(merchantAfterCredit);
+
+console.log("Service Balance After Credit:");
+console.log(merchantAfterCredit.serviceBalance);
+
+console.log("========================================");
+
+}
+
+else if (balanceType === "whatsapp") {
+
+    console.log("========== CREDITING WHATSAPP ==========");
+
+    await whatsappService.topupWhatsappCoins(
+        uid,
+        Number(data.amount)
+    );
+
+    const admin = require("firebase-admin");
+
+    await admin.firestore()
+        .collection("users")
+        .doc(uid)
+        .collection("whatsappPurchases")
+        .add({
+            amount: Number(data.amount),
+            credits: Number(data.amount),
+            transactionId: data.transaction_id,
+            phone: data.phone,
+            status: "SUCCESS",
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        /*
-        =========================================
-        CREDIT BALANCES
-        =========================================
-        */
+    await whatsappService.sendMerchantNotification(
+        uid,
+`✅ WhatsApp Credits Purchased
 
-        if (balanceType === "wallet") {
+Amount: KES ${Number(data.amount).toLocaleString()}
 
-            await walletService.topupWallet(
-                uid,
-                Number(data.amount)
-            );
+Your WhatsApp credits have been added successfully.
 
-            await walletService.deductServiceBalance(
-                uid,
-                serviceFee
-            );
+Thank you for using AUTOPAY.`
+    );
 
-        } else if (balanceType === "service") {
+    console.log("WhatsApp credits added successfully.");
 
-            await walletService.topupService(
-                uid,
-                Number(data.amount)
-            );
-
-        }
+}
 
         /*
         =========================================
@@ -133,25 +278,29 @@ async function webhook(req, res) {
 
                     body: JSON.stringify({
 
-                        success: true,
+    success: true,
 
-                        status: "SUCCESS",
+    status: "SUCCESS",
 
-                        amount: Number(data.amount),
+    amount: Number(data.amount),
 
-                        phone: data.phone,
+    phone: data.phone,
 
-                        transaction_id: data.transaction_id,
+    transaction_id: data.transaction_id,
 
-                        mpesa_receipt: data.mpesa_receipt,
+    merchant_request_id:
+        data.merchant_request_id || null,
 
-                        reference: data.reference,
+    checkout_request_id:
+        checkoutRequestId,
 
-                        merchant_id: merchant.merchantId,
+    merchant_id:
+        merchant.merchantId,
 
-                        currency: merchant.currency || "KES"
+    currency:
+        merchant.currency || "KES"
 
-                    })
+})
 
                 });
 
